@@ -16,17 +16,28 @@ export default function Home() {
   const terminalBodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let loaderInt: NodeJS.Timeout | null = null;
+    let typeTimeout: NodeJS.Timeout | null = null;
+    let animationFrameId: number;
+    let handleMouseMove: (e: MouseEvent) => void;
+    let handleMouseEnter: () => void;
+    let handleMouseLeave: () => void;
+    let handleResize: () => void;
+    let handleFilterClick: (e: Event) => void;
+    let handleFormSubmit: (e: Event) => void;
+    let observer: IntersectionObserver;
+
     // --- LOADER ---
     const loaderFill = document.getElementById('loader-fill');
     const loaderPct = document.getElementById('loader-pct');
     const loader = document.getElementById('loader');
     if (loaderFill && loaderPct && loader) {
       let pct = 0;
-      const loaderInt = setInterval(() => {
+      loaderInt = setInterval(() => {
         pct += Math.random() * 15;
         if (pct >= 100) {
           pct = 100;
-          clearInterval(loaderInt);
+          if (loaderInt) clearInterval(loaderInt);
           setTimeout(() => loader.classList.add('done'), 400);
         }
         loaderFill.style.width = pct + '%';
@@ -38,14 +49,15 @@ export default function Home() {
     const cursor = document.getElementById('cursor');
     const cursorRing = document.getElementById('cursor-ring');
     let mx = 0, my = 0, rx = 0, ry = 0;
-    document.addEventListener('mousemove', (e) => {
+    handleMouseMove = (e: MouseEvent) => {
       mx = e.clientX;
       my = e.clientY;
       if (cursor) {
         cursor.style.left = mx + 'px';
         cursor.style.top = my + 'px';
       }
-    });
+    };
+    document.addEventListener('mousemove', handleMouseMove);
     const animRing = () => {
       rx += (mx - rx) * 0.12;
       ry += (my - ry) * 0.12;
@@ -53,31 +65,34 @@ export default function Home() {
         cursorRing.style.left = rx + 'px';
         cursorRing.style.top = ry + 'px';
       }
-      requestAnimationFrame(animRing);
+      animationFrameId = requestAnimationFrame(animRing);
     };
     animRing();
-    document.querySelectorAll('a, button, .filter-btn, .project-card, .skill-tag').forEach(el => {
-      el.addEventListener('mouseenter', () => {
-        if (cursor) cursor.style.transform = 'translate(-50%,-50%) scale(1.8)';
-        if (cursorRing) cursorRing.style.transform = 'translate(-50%,-50%) scale(1.4)';
-      });
-      el.addEventListener('mouseleave', () => {
-        if (cursor) cursor.style.transform = 'translate(-50%,-50%) scale(1)';
-        if (cursorRing) cursorRing.style.transform = 'translate(-50%,-50%) scale(1)';
-      });
+    handleMouseEnter = () => {
+      if (cursor) cursor.style.transform = 'translate(-50%,-50%) scale(1.8)';
+      if (cursorRing) cursorRing.style.transform = 'translate(-50%,-50%) scale(1.4)';
+    };
+    handleMouseLeave = () => {
+      if (cursor) cursor.style.transform = 'translate(-50%,-50%) scale(1)';
+      if (cursorRing) cursorRing.style.transform = 'translate(-50%,-50%) scale(1)';
+    };
+    const interactiveElements = document.querySelectorAll('a, button, .filter-btn, .project-card, .skill-tag');
+    interactiveElements.forEach(el => {
+      el.addEventListener('mouseenter', handleMouseEnter);
+      el.addEventListener('mouseleave', handleMouseLeave);
     });
 
     // --- CANVAS PARTICLES ---
     const canvas = canvasRef.current;
+    const particles: Particle[] = [];
     if (canvas) {
       const ctx = canvas.getContext('2d');
-      const resize = () => {
+      handleResize = () => {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
       };
-      resize();
-      window.addEventListener('resize', resize);
-      const particles: Particle[] = [];
+      handleResize();
+      window.addEventListener('resize', handleResize);
       for (let i = 0; i < 80; i++) {
         particles.push({
           x: Math.random() * canvas.width,
@@ -115,14 +130,14 @@ export default function Home() {
             }
           }
         }
-        requestAnimationFrame(draw);
+        animationFrameId = requestAnimationFrame(draw);
       };
       draw();
     }
 
     // --- SCROLL REVEAL ---
     const reveals = document.querySelectorAll('.reveal');
-    const observer = new IntersectionObserver(entries => {
+    observer = new IntersectionObserver(entries => {
       entries.forEach(e => {
         if (e.isIntersecting) e.target.classList.add('visible');
       });
@@ -147,12 +162,12 @@ export default function Home() {
       if (charIdx >= line.length) {
         charIdx = 0;
         lineIdx = (lineIdx + 1) % typedLines.length;
-        setTimeout(typeLoop, 1500);
+        typeTimeout = setTimeout(typeLoop, 1500);
       } else {
-        setTimeout(typeLoop, 80);
+        typeTimeout = setTimeout(typeLoop, 80);
       }
     };
-    setTimeout(typeLoop, 1000);
+    typeTimeout = setTimeout(typeLoop, 1000);
 
     // --- TERMINAL ---
     const terminalContent = [
@@ -179,30 +194,47 @@ export default function Home() {
     // --- PROJECT FILTER ---
     const filterBtns = document.querySelectorAll('.filter-btn');
     const projectCards = document.querySelectorAll('.project-card');
-    filterBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        filterBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const filter = btn.getAttribute('data-filter');
-        projectCards.forEach(card => {
-          if (filter === 'all' || card.getAttribute('data-category') === filter) {
-            card.classList.remove('hidden');
-          } else {
-            card.classList.add('hidden');
-          }
-        });
+    handleFilterClick = (e: Event) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      filterBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filter = btn.getAttribute('data-filter');
+      projectCards.forEach(card => {
+        if (filter === 'all' || card.getAttribute('data-category') === filter) {
+          card.classList.remove('hidden');
+        } else {
+          card.classList.add('hidden');
+        }
       });
-    });
+    };
+    filterBtns.forEach(btn => btn.addEventListener('click', handleFilterClick));
 
     // --- FORM SUBMIT ---
     const formSubmit = document.getElementById('form-submit');
     const formMsg = document.getElementById('form-msg');
-    formSubmit?.addEventListener('click', (e) => {
+    handleFormSubmit = (e: Event) => {
       e.preventDefault();
       if (formMsg) {
         formMsg.style.display = 'block';
       }
-    });
+    };
+    formSubmit?.addEventListener('click', handleFormSubmit);
+
+    // --- CLEANUP ---
+    return () => {
+      if (loaderInt) clearInterval(loaderInt);
+      if (typeTimeout) clearTimeout(typeTimeout);
+      cancelAnimationFrame(animationFrameId);
+      document.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('resize', handleResize);
+      interactiveElements.forEach(el => {
+        el.removeEventListener('mouseenter', handleMouseEnter);
+        el.removeEventListener('mouseleave', handleMouseLeave);
+      });
+      filterBtns.forEach(btn => btn.removeEventListener('click', handleFilterClick));
+      formSubmit?.removeEventListener('click', handleFormSubmit);
+      observer.disconnect();
+    };
   }, []);
 
   return (
@@ -337,7 +369,7 @@ export default function Home() {
                   tarifrahman93@gmail.com
                 </a>
                 <a href="https://github.com/Tarif205" target="_blank" rel="noopener noreferrer" className="profile-link">
-                  <svg viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
+                  <svg viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
                   github.com/Tarif205
                 </a>
                 <a href="https://linkedin.com/in/tarif-rahman-265951261" target="_blank" rel="noopener noreferrer" className="profile-link">
@@ -488,7 +520,7 @@ export default function Home() {
                 <div className="proj-icon">🌿</div>
                 <div className="proj-links">
                   <a href="https://github.com/Tarif205/gardeniAR" target="_blank" rel="noopener noreferrer" className="proj-link" title="GitHub">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
                   </a>
                 </div>
               </div>
@@ -508,7 +540,7 @@ export default function Home() {
                 <div className="proj-icon">🎵</div>
                 <div className="proj-links">
                   <a href="https://github.com/Tarif205/Unsupervised-Neural-Network-for-Multi-Genre-Music-Generation" target="_blank" rel="noopener noreferrer" className="proj-link" title="GitHub">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
                   </a>
                 </div>
               </div>
@@ -528,7 +560,7 @@ export default function Home() {
                 <div className="proj-icon">🔤</div>
                 <div className="proj-links">
                   <a href="https://github.com/Tarif205/sahajBERT-finetuning" target="_blank" rel="noopener noreferrer" className="proj-link" title="GitHub">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
                   </a>
                 </div>
               </div>
@@ -548,7 +580,7 @@ export default function Home() {
                 <div className="proj-icon">🌫️</div>
                 <div className="proj-links">
                   <a href="https://github.com/Tarif205/air-quality-prediction-platform" target="_blank" rel="noopener noreferrer" className="proj-link" title="GitHub">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
                   </a>
                 </div>
               </div>
@@ -568,7 +600,7 @@ export default function Home() {
                 <div className="proj-icon">🤟</div>
                 <div className="proj-links">
                   <a href="https://github.com/Tarif205/Lightweight-Sign-Language-Detection-Model" target="_blank" rel="noopener noreferrer" className="proj-link" title="GitHub">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
                   </a>
                 </div>
               </div>
@@ -587,7 +619,7 @@ export default function Home() {
                 <div className="proj-icon">📈</div>
                 <div className="proj-links">
                   <a href="https://github.com/Tarif205/Machine-Learning-Titanic-disaster-Prediction" target="_blank" rel="noopener noreferrer" className="proj-link" title="GitHub">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
                   </a>
                 </div>
               </div>
