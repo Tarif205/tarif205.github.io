@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tarif Rahman — CS Student · ML & Full-Stack Developer",
-  description: "Portfolio of Tarif Rahman, Computer Science student at BRAC University building intelligent systems.",
+  title: " Kazi Tarif Rahman — CS Student · ML & Full-Stack Developer",
+  description: "Portfolio of Kazi Tarif Rahman, Computer Science student at BRAC University building intelligent systems.",
 };
 
 export default function RootLayout({

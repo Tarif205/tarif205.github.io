@@ -1,787 +1,406 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  r: number;
-}
+const styles = {
+  container: { minHeight: '100vh', backgroundColor: '#ffffff', color: '#111827', fontFamily: "'Inter', system-ui, sans-serif" },
+  navbar: (scrolled: boolean) => ({
+    position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, transition: 'all 0.3s',
+    padding: scrolled ? '16px 0' : '24px 0',
+    backgroundColor: scrolled ? 'rgba(255,255,255,0.95)' : 'transparent',
+    backdropFilter: scrolled ? 'blur(20px)' : 'none',
+    boxShadow: scrolled ? '0 1px 2px 0 rgba(0,0,0,0.05)' : 'none',
+    borderBottom: scrolled ? '1px solid #f3f4f6' : 'none'
+  }),
+  navContent: { maxWidth: '1400px', margin: '0 auto', padding: '0 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '40px' },
+  logo: { fontSize: '20px', fontWeight: '800', background: 'linear-gradient(135deg, #2563eb, #9333ea)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
+  navLinks: { display: 'flex', gap: '32px' },
+  navLink: { fontSize: '15px', fontWeight: '600', color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' },
+  hireBtn: {
+    padding: '10px 20px', borderRadius: '9999px', backgroundColor: '#2563eb', color: '#fff', fontWeight: '700',
+    textDecoration: 'none', transition: 'all 0.2s', boxShadow: '0 4px 6px -1px rgba(37,99,235,0.2)'
+  },
+  hero: { padding: '180px 48px 120px' },
+  heroContent: { maxWidth: '1400px', margin: '0 auto' },
+  heroGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px', alignItems: 'center' },
+  heroTag: {
+    display: 'inline-block', padding: '6px 16px', backgroundColor: '#eff6ff', color: '#1d4ed8',
+    borderRadius: '9999px', fontSize: '14px', fontWeight: '700', marginBottom: '24px'
+  },
+  heroTitle: { fontSize: '48px', fontWeight: '800', lineHeight: '1.1', marginBottom: '24px' },
+  heroDesc: { fontSize: '18px', color: '#4b5563', lineHeight: '1.7', marginBottom: '32px', maxWidth: '420px' },
+  heroBtns: { display: 'flex', gap: '16px', flexWrap: 'wrap' },
+  btnPrimary: {
+    padding: '12px 24px', borderRadius: '12px', backgroundColor: '#111827', color: '#fff', fontWeight: '700',
+    textDecoration: 'none', transition: 'all 0.2s', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'
+  },
+  btnSecondary: {
+    padding: '12px 24px', borderRadius: '12px', border: '2px solid #e5e7eb', color: '#111827', fontWeight: '700',
+    textDecoration: 'none', transition: 'all 0.2s'
+  },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '24px', marginTop: '56px' },
+  statCard: { textAlign: 'center', padding: '24px', backgroundColor: '#f9fafb', borderRadius: '16px' },
+  section: { padding: '120px 48px' },
+  sectionGray: { backgroundColor: '#f9fafb', padding: '120px 48px' },
+  sectionHeader: { textAlign: 'center', marginBottom: '64px' },
+  sectionTag: { color: '#2563eb', fontSize: '14px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase' },
+  sectionTitle: { fontSize: '36px', fontWeight: '800', marginTop: '12px' },
+  imgContainer: { display: 'flex', justifyContent: 'flex-end' },
+  imgWrapper: { position: 'relative' },
+  profileImg: {
+    width: '360px', height: '360px', borderRadius: '28px', overflow: 'hidden', border: '4px solid #fff',
+    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
+  },
+  card: {
+    padding: '32px', backgroundColor: '#fff', borderRadius: '20px', border: '1px solid #f3f4f6',
+    boxShadow: '0 1px 3px 0 rgba(0,0,0,0.1)', transition: 'all 0.2s'
+  },
+  projectGrid: { display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '32px', maxWidth: '1400px', margin: '0 auto' },
+  projectEmoji: (color: string) => ({
+    width: '56px', height: '56px', background: color, borderRadius: '16px', display: 'flex', alignItems: 'center',
+    justifyContent: 'center', fontSize: '24px', marginBottom: '20px'
+  }),
+  contactGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px', maxWidth: '1200px', margin: '0 auto' },
+  form: { padding: '40px', backgroundColor: '#fff', borderRadius: '28px', border: '1px solid #f3f4f6', boxShadow: '0 1px 3px 0 rgba(0,0,0,0.1)' },
+  input: {
+    width: '100%', padding: '16px 20px', borderRadius: '14px', border: '2px solid #f3f4f6', backgroundColor: '#f9fafb',
+    fontSize: '15px', outline: 'none', transition: 'all 0.2s'
+  },
+  footer: { padding: '48px 48px', borderTop: '1px solid #f3f4f6', backgroundColor: '#f9fafb' }
+};
 
 export default function Home() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const typedTextRef = useRef<HTMLSpanElement>(null);
-  const terminalBodyRef = useRef<HTMLDivElement>(null);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    let loaderInt: NodeJS.Timeout | null = null;
-    let typeTimeout: NodeJS.Timeout | null = null;
-    let animationFrameId: number;
-    let handleMouseMove: (e: MouseEvent) => void;
-    let handleMouseEnter: () => void;
-    let handleMouseLeave: () => void;
-    let handleResize: () => void;
-    let handleFilterClick: (e: Event) => void;
-    let handleFormSubmit: (e: Event) => void;
-    let observer: IntersectionObserver;
-
-    // --- LOADER ---
-    const loaderFill = document.getElementById('loader-fill');
-    const loaderPct = document.getElementById('loader-pct');
-    const loader = document.getElementById('loader');
-    if (loaderFill && loaderPct && loader) {
-      let pct = 0;
-      loaderInt = setInterval(() => {
-        pct += Math.random() * 15;
-        if (pct >= 100) {
-          pct = 100;
-          if (loaderInt) clearInterval(loaderInt);
-          setTimeout(() => loader.classList.add('done'), 400);
-        }
-        loaderFill.style.width = pct + '%';
-        loaderPct.textContent = Math.round(pct) + '%';
-      }, 100);
-    }
-
-    // --- CURSOR ---
-    const cursor = document.getElementById('cursor');
-    const cursorRing = document.getElementById('cursor-ring');
-    let mx = 0, my = 0, rx = 0, ry = 0;
-    handleMouseMove = (e: MouseEvent) => {
-      mx = e.clientX;
-      my = e.clientY;
-      if (cursor) {
-        cursor.style.left = mx + 'px';
-        cursor.style.top = my + 'px';
-      }
-    };
-    document.addEventListener('mousemove', handleMouseMove);
-    const animRing = () => {
-      rx += (mx - rx) * 0.12;
-      ry += (my - ry) * 0.12;
-      if (cursorRing) {
-        cursorRing.style.left = rx + 'px';
-        cursorRing.style.top = ry + 'px';
-      }
-      animationFrameId = requestAnimationFrame(animRing);
-    };
-    animRing();
-    handleMouseEnter = () => {
-      if (cursor) cursor.style.transform = 'translate(-50%,-50%) scale(1.8)';
-      if (cursorRing) cursorRing.style.transform = 'translate(-50%,-50%) scale(1.4)';
-    };
-    handleMouseLeave = () => {
-      if (cursor) cursor.style.transform = 'translate(-50%,-50%) scale(1)';
-      if (cursorRing) cursorRing.style.transform = 'translate(-50%,-50%) scale(1)';
-    };
-    const interactiveElements = document.querySelectorAll('a, button, .filter-btn, .project-card, .skill-tag');
-    interactiveElements.forEach(el => {
-      el.addEventListener('mouseenter', handleMouseEnter);
-      el.addEventListener('mouseleave', handleMouseLeave);
-    });
-
-    // --- CANVAS PARTICLES ---
-    const canvas = canvasRef.current;
-    const particles: Particle[] = [];
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      handleResize = () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-      };
-      handleResize();
-      window.addEventListener('resize', handleResize);
-      for (let i = 0; i < 80; i++) {
-        particles.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.3,
-          vy: (Math.random() - 0.5) * 0.3,
-          r: Math.random() * 1.5 + 0.5
-        });
-      }
-      const draw = () => {
-        if (!ctx) return;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        particles.forEach(p => {
-          p.x += p.vx;
-          p.y += p.vy;
-          if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-          if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(0,212,255,0.4)';
-          ctx.fill();
-        });
-        for (let i = 0; i < particles.length; i++) {
-          for (let j = i + 1; j < particles.length; j++) {
-            const dx = particles[i].x - particles[j].x;
-            const dy = particles[i].y - particles[j].y;
-            const d = Math.sqrt(dx * dx + dy * dy);
-            if (d < 100) {
-              ctx.beginPath();
-              ctx.strokeStyle = `rgba(0,212,255,${0.2 * (1 - d / 100)})`;
-              ctx.lineWidth = 0.5;
-              ctx.moveTo(particles[i].x, particles[i].y);
-              ctx.lineTo(particles[j].x, particles[j].y);
-              ctx.stroke();
-            }
-          }
-        }
-        animationFrameId = requestAnimationFrame(draw);
-      };
-      draw();
-    }
-
-    // --- SCROLL REVEAL ---
-    const reveals = document.querySelectorAll('.reveal');
-    observer = new IntersectionObserver(entries => {
-      entries.forEach(e => {
-        if (e.isIntersecting) e.target.classList.add('visible');
-      });
-    }, { threshold: 0.1 });
-    reveals.forEach(r => observer.observe(r));
-
-    // --- TYPED TEXT ---
-    const typedLines = [
-      "import numpy as np",
-      "model = Sequential()",
-      "from transformers import AutoModel",
-      "const [x, setX] = useState(0)",
-      "print('Hello, World!')"
-    ];
-    let lineIdx = 0, charIdx = 0;
-    const typeLoop = () => {
-      const line = typedLines[lineIdx];
-      if (typedTextRef.current) {
-        typedTextRef.current.textContent = line.slice(0, charIdx + 1);
-      }
-      charIdx++;
-      if (charIdx >= line.length) {
-        charIdx = 0;
-        lineIdx = (lineIdx + 1) % typedLines.length;
-        typeTimeout = setTimeout(typeLoop, 1500);
-      } else {
-        typeTimeout = setTimeout(typeLoop, 80);
-      }
-    };
-    typeTimeout = setTimeout(typeLoop, 1000);
-
-    // --- TERMINAL ---
-    const terminalContent = [
-      { delay: 0, html: '<span class="comment"># Loading Tarif Rahman...</span>' },
-      { delay: 700, html: '<span class="output">name</span>      = <span class="string">"Tarif Rahman"</span>' },
-      { delay: 1200, html: '<span class="output">role</span>      = <span class="string">"CS Student · ML & Full-Stack Dev"</span>' },
-      { delay: 1800, html: '<span class="output">university</span>= <span class="string">"BRAC University"</span>' },
-      { delay: 2100, html: '<span class="output">cgpa</span>      = <span class="num">3.50</span>' },
-      { delay: 2400, html: '<span class="output">skills</span>    = <span class="string">[Python, PyTorch, React, Next.js]</span>' },
-      { delay: 2800, html: '<span class="prompt">>>> </span><span class="cmd">hire_now()</span>' },
-      { delay: 3200, html: '<span class="output">status</span>    = <span class="accent2">"Available for internships"</span>' }
-    ];
-    terminalContent.forEach(item => {
-      setTimeout(() => {
-        if (terminalBodyRef.current) {
-          const div = document.createElement('div');
-          div.className = 'terminal-line';
-          div.innerHTML = item.html;
-          terminalBodyRef.current.appendChild(div);
-        }
-      }, item.delay);
-    });
-
-    // --- PROJECT FILTER ---
-    const filterBtns = document.querySelectorAll('.filter-btn');
-    const projectCards = document.querySelectorAll('.project-card');
-    handleFilterClick = (e: Event) => {
-      const btn = e.currentTarget as HTMLButtonElement;
-      filterBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const filter = btn.getAttribute('data-filter');
-      projectCards.forEach(card => {
-        if (filter === 'all' || card.getAttribute('data-category') === filter) {
-          card.classList.remove('hidden');
-        } else {
-          card.classList.add('hidden');
-        }
-      });
-    };
-    filterBtns.forEach(btn => btn.addEventListener('click', handleFilterClick));
-
-    // --- FORM SUBMIT ---
-    const formSubmit = document.getElementById('form-submit');
-    const formMsg = document.getElementById('form-msg');
-    handleFormSubmit = (e: Event) => {
-      e.preventDefault();
-      if (formMsg) {
-        formMsg.style.display = 'block';
-      }
-    };
-    formSubmit?.addEventListener('click', handleFormSubmit);
-
-    // --- CLEANUP ---
-    return () => {
-      if (loaderInt) clearInterval(loaderInt);
-      if (typeTimeout) clearTimeout(typeTimeout);
-      cancelAnimationFrame(animationFrameId);
-      document.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('resize', handleResize);
-      interactiveElements.forEach(el => {
-        el.removeEventListener('mouseenter', handleMouseEnter);
-        el.removeEventListener('mouseleave', handleMouseLeave);
-      });
-      filterBtns.forEach(btn => btn.removeEventListener('click', handleFilterClick));
-      formSubmit?.removeEventListener('click', handleFormSubmit);
-      observer.disconnect();
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 50);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const name = formData.get('name') as string;
+    const email = formData.get('email') as string;
+    const subject = formData.get('subject') as string;
+    const message = formData.get('message') as string;
+
+    if (!name || !email || !message) {
+      alert('Please fill in name, email, and message.');
+      return;
+    }
+
+    const mailto = `mailto:tarifrahman93@gmail.com?subject=${encodeURIComponent(subject || 'Portfolio Contact')}&body=${encodeURIComponent('From: ' + name + '\nEmail: ' + email + '\n\n' + message)}`;
+    window.location.href = mailto;
+  };
+
   return (
-    <>
-      {/* LOADER */}
-      <div id="loader">
-        <div className="loader-text">INITIALIZING PORTFOLIO...</div>
-        <div className="loader-bar-track"><div className="loader-bar-fill" id="loader-fill"></div></div>
-        <div className="loader-pct" id="loader-pct">0%</div>
-      </div>
+    <div style={styles.container}>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        html { scroll-behavior: smooth; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        a:hover { text-decoration: none; }
+      `}</style>
 
-      {/* CURSOR */}
-      <div id="cursor"></div>
-      <div id="cursor-ring"></div>
-
-      {/* BACKGROUND CANVAS */}
-      <canvas ref={canvasRef} id="bg-canvas"></canvas>
-
-      {/* NAV */}
-      <nav>
-        <div className="nav-logo">tarif<span>.rahman</span><span style={{ color: 'var(--accent2)' }}>_</span></div>
-        <div className="nav-links">
-          <a href="#about">about</a>
-          <a href="#skills">skills</a>
-          <a href="#experience">experience</a>
-          <a href="#projects">projects</a>
-          <a href="#education">education</a>
-          <a href="#contact">contact</a>
+      {/* Navbar */}
+      <nav style={styles.navbar(scrolled)}>
+        <div style={styles.navContent}>
+          <div style={styles.logo}>Kazi Tarif Rahman</div>
+          <div style={styles.navLinks}>
+            {['About', 'Skills', 'Experience', 'Projects', 'Contact'].map(item => (
+              <a key={item} href={`#${item.toLowerCase()}`} style={{...styles.navLink, ':hover': { color: '#2563eb' }}} onMouseOver={(e) => (e.currentTarget.style.color = '#2563eb')} onMouseOut={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                {item}
+              </a>
+            ))}
+          </div>
+          <a 
+            href="mailto:tarifrahman93@gmail.com" 
+            style={styles.hireBtn} 
+            onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#1d4ed8'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(37,99,235,0.3)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#2563eb'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(37,99,235,0.2)'; }}
+          >
+            Hire Me
+          </a>
         </div>
-        <a href="mailto:tarifrahman93@gmail.com" className="nav-cta">hire_me()</a>
       </nav>
 
-      <main>
-        {/* HERO */}
-        <section id="hero">
-          <div className="hero-grid">
-            <div className="hero-left">
-              <div className="hero-tag">CS Student · ML & Full-Stack Developer</div>
-              <h1 className="hero-name">
-                <div>Tarif</div>
-                <div className="line2 glitch" data-text="Rahman">Rahman</div>
+      {/* Hero */}
+      <section id="hero" style={styles.hero}>
+        <div style={styles.heroContent}>
+          <div style={styles.heroGrid}>
+            <div>
+              <span style={styles.heroTag}>CS Student · ML & Full-Stack Developer</span>
+              <h1 style={styles.heroTitle}>
+                Building intelligent
+                <span style={{ display: 'block', background: 'linear-gradient(135deg, #2563eb, #9333ea)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  systems & experiences
+                </span>
               </h1>
-              <div className="hero-title">
-                <span style={{ color: 'var(--text3)' }}>$ </span>
-                <span className="typed-text" ref={typedTextRef} id="typed-text"></span><span className="cursor-blink"></span>
-              </div>
-              <p className="hero-desc">
-                CS student at BRAC University building intelligent systems — NLP, deep learning, computer vision, and full-stack ML products. WorldQuant University Applied Data Science Lab graduate.
+              <p style={styles.heroDesc}>
+                CS student at BRAC University specializing in NLP, deep learning, computer vision, and full-stack ML products. WorldQuant Applied DS Lab graduate.
               </p>
-              <div className="hero-btns">
-                <a href="#projects" className="btn-primary">View Projects</a>
-                <a href="#contact" className="btn-secondary">Get In Touch</a>
-              </div>
-              <div className="hero-stats">
-                <div className="stat-item">
-                  <span className="stat-num">6+</span>
-                  <span className="stat-label">ML Projects</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-num">3.50</span>
-                  <span className="stat-label">CGPA / 4.0</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-num">111</span>
-                  <span className="stat-label">Credits Done</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-num">5.0</span>
-                  <span className="stat-label">HSC / SSC GPA</span>
-                </div>
-              </div>
-            </div>
-            <div className="hero-terminal">
-              <div className="terminal-bar">
-                <div className="tbar-dot red"></div>
-                <div className="tbar-dot yellow"></div>
-                <div className="tbar-dot green"></div>
-                <span className="tbar-title">tarif@ml-studio ~ python</span>
-              </div>
-              <div className="terminal-body" ref={terminalBodyRef} id="terminal-body"></div>
-            </div>
-          </div>
-          <div className="scroll-indicator">
-            <span>scroll</span>
-            <div className="scroll-arrow"></div>
-          </div>
-        </section>
-
-        {/* ABOUT */}
-        <section id="about">
-          <div className="section-header reveal">
-            <div className="section-tag">01 / about_me</div>
-            <h2 className="section-title">Who I <span>Am</span></h2>
-          </div>
-          <div className="about-grid">
-            <div className="about-text reveal">
-              <p>I'm a <strong>Computer Science student at BRAC University</strong>, Dhaka, specialising in AI/ML and Data Science. I build things that learn — from transformer-based Bangla NLP models to real-time computer vision systems.</p>
-              <p>My work spans the full ML lifecycle: data ingestion, feature engineering, model training, evaluation, and production deployment. I care deeply about <strong>low-resource NLP</strong>, especially for Bangla — a language spoken by 300M+ people with too little AI tooling.</p>
-              <p>Outside ML, I build full-stack web apps on the <strong>MERN stack</strong>, work with generative AI in production at Aireel Digital, and keep contributing to open-source research projects on GitHub.</p>
-              <div className="about-highlights">
-                <div className="highlight-item">
-                  <div className="hi-icon">🎓</div>
-                  <div className="hi-label">University</div>
-                  <div className="hi-value">BRAC University</div>
-                </div>
-                <div className="highlight-item">
-                  <div className="hi-icon">📍</div>
-                  <div className="hi-label">Location</div>
-                  <div className="hi-value">Dhaka, Bangladesh</div>
-                </div>
-                <div className="highlight-item">
-                  <div className="hi-icon">🤖</div>
-                  <div className="hi-label">Focus</div>
-                  <div className="hi-value">NLP · Computer Vision</div>
-                </div>
-                <div className="highlight-item">
-                  <div className="hi-icon">🏆</div>
-                  <div className="hi-label">Certification</div>
-                  <div className="hi-value">WorldQuant DS Lab</div>
-                </div>
-              </div>
-            </div>
-            <div className="about-card reveal">
-              <div className="profile-avatar">
-                <img src="/tarif.jpg" alt="Tarif Rahman" />
-              </div>
-              <div className="profile-name">Tarif Rahman</div>
-              <div className="profile-role">CS Student · ML & Full-Stack Developer</div>
-              <div className="profile-links">
-                <a href="mailto:tarifrahman93@gmail.com" className="profile-link">
-                  <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" /></svg>
-                  tarifrahman93@gmail.com
+              <div style={styles.heroBtns}>
+                <a 
+                  href="#projects" 
+                  style={styles.btnPrimary} 
+                  onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#1f2937'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#111827'; }}
+                >
+                  View Projects
                 </a>
-                <a href="https://github.com/Tarif205" target="_blank" rel="noopener noreferrer" className="profile-link">
-                  <svg viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
-                  github.com/Tarif205
-                </a>
-                <a href="https://linkedin.com/in/tarif-rahman-265951261" target="_blank" rel="noopener noreferrer" className="profile-link">
-                  <svg viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" /></svg>
-                  LinkedIn Profile
-                </a>
-                <a href="tel:+8801707804714" className="profile-link">
-                  <svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" /></svg>
-                  +880 1707-804714
+                <a 
+                  href="#contact" 
+                  style={styles.btnSecondary} 
+                  onMouseOver={(e) => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.color = '#2563eb'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#111827'; }}
+                >
+                  Get in Touch
                 </a>
               </div>
-            </div>
-          </div>
-        </section>
 
-        {/* SKILLS */}
-        <section id="skills">
-          <div className="section-header reveal">
-            <div className="section-tag">02 / tech_stack</div>
-            <h2 className="section-title">Skills & <span>Technologies</span></h2>
-          </div>
-          <div className="skills-grid reveal">
-            <div className="skill-category">
-              <div className="skill-cat-header">
-                <span className="skill-cat-icon">🧠</span>
-                <span className="skill-cat-name">ML / AI</span>
-              </div>
-              <div className="skill-tags">
-                <span className="skill-tag hot">NLP</span>
-                <span className="skill-tag hot">Transformers (BERT)</span>
-                <span className="skill-tag hot">LLMs</span>
-                <span className="skill-tag hot">sahajBERT</span>
-                <span className="skill-tag">CNNs</span>
-                <span className="skill-tag">Transfer Learning</span>
-                <span className="skill-tag">Unsupervised Learning</span>
-                <span className="skill-tag">PyTorch</span>
-                <span className="skill-tag">HuggingFace</span>
-                <span className="skill-tag">Scikit-Learn</span>
-                <span className="skill-tag">LSTM / VAE</span>
-                <span className="skill-tag">XGBoost</span>
-              </div>
-            </div>
-            <div className="skill-category">
-              <div className="skill-cat-header">
-                <span className="skill-cat-icon">📊</span>
-                <span className="skill-cat-name">Data Science</span>
-              </div>
-              <div className="skill-tags">
-                <span className="skill-tag hot">Python</span>
-                <span className="skill-tag hot">Pandas</span>
-                <span className="skill-tag hot">NumPy</span>
-                <span className="skill-tag">Statistics</span>
-                <span className="skill-tag">Data Visualisation</span>
-                <span className="skill-tag">SQL</span>
-                <span className="skill-tag">MongoDB</span>
-                <span className="skill-tag">FastAPI</span>
-                <span className="skill-tag">Feature Engineering</span>
-                <span className="skill-tag">Cross-Validation</span>
-              </div>
-            </div>
-            <div className="skill-category">
-              <div className="skill-cat-header">
-                <span className="skill-cat-icon">🌐</span>
-                <span className="skill-cat-name">Web & Dev</span>
-              </div>
-              <div className="skill-tags">
-                <span className="skill-tag hot">React</span>
-                <span className="skill-tag hot">Node.js</span>
-                <span className="skill-tag">Express.js</span>
-                <span className="skill-tag">MongoDB</span>
-                <span className="skill-tag">JavaScript</span>
-                <span className="skill-tag">HTML / CSS</span>
-                <span className="skill-tag">PHP</span>
-                <span className="skill-tag">REST APIs</span>
-                <span className="skill-tag">Generative AI</span>
-                <span className="skill-tag">Gemini API</span>
-              </div>
-            </div>
-            <div className="skill-category">
-              <div className="skill-cat-header">
-                <span className="skill-cat-icon">🔧</span>
-                <span className="skill-cat-name">Tools & CS</span>
-              </div>
-              <div className="skill-tags">
-                <span className="skill-tag hot">Git / GitHub</span>
-                <span className="skill-tag">Jupyter</span>
-                <span className="skill-tag">Linux</span>
-                <span className="skill-tag">OOP</span>
-                <span className="skill-tag">DSA</span>
-                <span className="skill-tag">MVC Architecture</span>
-                <span className="skill-tag">Agile</span>
-                <span className="skill-tag">API Design</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* EXPERIENCE */}
-        <section id="experience">
-          <div className="section-header reveal">
-            <div className="section-tag">03 / work_exp</div>
-            <h2 className="section-title">Work <span>Experience</span></h2>
-          </div>
-          <div className="exp-timeline reveal">
-            <div className="exp-item current">
-              <div className="exp-dot"></div>
-              <div className="exp-date">2025 — Present</div>
-              <div className="exp-role">AI/ML Collaborator</div>
-              <div className="exp-company">Aireel Digital (aireel.digital) · Dhaka, BD</div>
-              <ul className="exp-desc">
-                <li>Contributing to an AI-powered visual content studio producing high-impact reels, UGC, motion graphics, and branded video assets using generative AI tooling.</li>
-                <li>Applied ML and automation techniques to streamline content generation workflows, reducing production time significantly.</li>
-                <li>Integrated multimodal AI models into creative pipelines, bridging the gap between AI capabilities and commercial visual storytelling.</li>
-              </ul>
-              <span className="exp-badge">CURRENT ROLE</span>
-            </div>
-            <div className="exp-item">
-              <div className="exp-dot"></div>
-              <div className="exp-date">Jun 2024 — Mar 2026</div>
-              <div className="exp-role">Software Development Engineer Intern</div>
-              <div className="exp-company">uSavior · Dhaka, BD</div>
-              <ul className="exp-desc">
-                <li>Developed and iterated on web application features using MERN stack within an agile development team.</li>
-                <li>Identified algorithmic bottlenecks and designed optimised data structures and logic from scratch.</li>
-                <li>Collaborated on API design, database schema, and front-end component architecture across full product cycles.</li>
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        {/* PROJECTS */}
-        <section id="projects">
-          <div className="section-header reveal">
-            <div className="section-tag">04 / projects</div>
-            <h2 className="section-title">Featured <span>Projects</span></h2>
-          </div>
-          <div className="projects-filter reveal">
-            <button className="filter-btn active" data-filter="all">All</button>
-            <button className="filter-btn" data-filter="nlp">NLP</button>
-            <button className="filter-btn" data-filter="cv">Computer Vision</button>
-            <button className="filter-btn" data-filter="ml">Classic ML</button>
-            <button className="filter-btn" data-filter="web">Full-Stack</button>
-            <button className="filter-btn" data-filter="audio">Audio / Music</button>
-          </div>
-          <div className="projects-grid reveal">
-            <div className="project-card" data-category="web">
-              <div className="proj-header">
-                <div className="proj-icon">🌿</div>
-                <div className="proj-links">
-                  <a href="https://github.com/Tarif205/gardeniAR" target="_blank" rel="noopener noreferrer" className="proj-link" title="GitHub">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
-                  </a>
-                </div>
-              </div>
-              <div className="proj-title">GardeniAR — AR Weed Identification</div>
-              <div className="proj-desc">Co-developed a full-stack AR application using Gemini multimodal AI for real-time invasive weed identification via live webcam. Competed in university software project competition — combining computer vision with practical environmental use.</div>
-              <div className="proj-stack">
-                <span className="proj-tech">MERN Stack</span>
-                <span className="proj-tech">Gemini API</span>
-                <span className="proj-tech">React-Webcam</span>
-                <span className="proj-tech">Multimodal AI</span>
-              </div>
-              <div className="proj-badge">🏆 Competition Entry</div>
-            </div>
-
-            <div className="project-card" data-category="audio">
-              <div className="proj-header">
-                <div className="proj-icon">🎵</div>
-                <div className="proj-links">
-                  <a href="https://github.com/Tarif205/Unsupervised-Neural-Network-for-Multi-Genre-Music-Generation" target="_blank" rel="noopener noreferrer" className="proj-link" title="GitHub">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
-                  </a>
-                </div>
-              </div>
-              <div className="proj-title">Unsupervised Multi-Genre Music Generation</div>
-              <div className="proj-desc">Designed and trained an unsupervised deep learning model (LSTM/VAE) to autonomously generate multi-genre musical sequences without labelled training data. Explored latent-space representations for genre-conditioned synthesis.</div>
-              <div className="proj-stack">
-                <span className="proj-tech">Python</span>
-                <span className="proj-tech">LSTM</span>
-                <span className="proj-tech">VAE</span>
-                <span className="proj-tech">Jupyter</span>
-                <span className="proj-tech">Latent Space</span>
-              </div>
-            </div>
-
-            <div className="project-card" data-category="nlp">
-              <div className="proj-header">
-                <div className="proj-icon">🔤</div>
-                <div className="proj-links">
-                  <a href="https://github.com/Tarif205/sahajBERT-finetuning" target="_blank" rel="noopener noreferrer" className="proj-link" title="GitHub">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
-                  </a>
-                </div>
-              </div>
-              <div className="proj-title">sahajBERT & BanglaBERT Fine-Tuning</div>
-              <div className="proj-desc">Fine-tuned sahajBERT and BanglaBERT on downstream Bangla NLP classification tasks, benchmarking across tokenisation strategies and hyperparameter configurations. Contributions relevant to low-resource language model adaptation for 300M+ speakers.</div>
-              <div className="proj-stack">
-                <span className="proj-tech">Python</span>
-                <span className="proj-tech">HuggingFace</span>
-                <span className="proj-tech">PyTorch</span>
-                <span className="proj-tech">Transformers</span>
-                <span className="proj-tech">Bangla NLP</span>
-              </div>
-            </div>
-
-            <div className="project-card" data-category="ml">
-              <div className="proj-header">
-                <div className="proj-icon">🌫️</div>
-                <div className="proj-links">
-                  <a href="https://github.com/Tarif205/air-quality-prediction-platform" target="_blank" rel="noopener noreferrer" className="proj-link" title="GitHub">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
-                  </a>
-                </div>
-              </div>
-              <div className="proj-title">Air Quality Prediction Platform</div>
-              <div className="proj-desc">End-to-end ML pipeline — data ingestion, feature engineering, model training, and a FastAPI REST service — to predict urban air quality indices. Integrated MongoDB for time-series storage and designed REST API for real-time inference.</div>
-              <div className="proj-stack">
-                <span className="proj-tech">Python</span>
-                <span className="proj-tech">Scikit-Learn</span>
-                <span className="proj-tech">FastAPI</span>
-                <span className="proj-tech">MongoDB</span>
-                <span className="proj-tech">REST API</span>
-              </div>
-            </div>
-
-            <div className="project-card" data-category="cv">
-              <div className="proj-header">
-                <div className="proj-icon">🤟</div>
-                <div className="proj-links">
-                  <a href="https://github.com/Tarif205/Lightweight-Sign-Language-Detection-Model" target="_blank" rel="noopener noreferrer" className="proj-link" title="GitHub">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
-                  </a>
-                </div>
-              </div>
-              <div className="proj-title">Lightweight Sign Language Detection</div>
-              <div className="proj-desc">Trained a lightweight CNN with transfer learning for real-time sign language gesture classification. Optimised for deployment on resource-constrained edge devices — making accessibility technology available at scale.</div>
-              <div className="proj-stack">
-                <span className="proj-tech">Python</span>
-                <span className="proj-tech">CNNs</span>
-                <span className="proj-tech">Transfer Learning</span>
-                <span className="proj-tech">Edge ML</span>
-              </div>
-            </div>
-
-            <div className="project-card" data-category="ml">
-              <div className="proj-header">
-                <div className="proj-icon">📈</div>
-                <div className="proj-links">
-                  <a href="https://github.com/Tarif205/Machine-Learning-Titanic-disaster-Prediction" target="_blank" rel="noopener noreferrer" className="proj-link" title="GitHub">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" /></svg>
-                  </a>
-                </div>
-              </div>
-              <div className="proj-title">Titanic & Obesity ML Predictions</div>
-              <div className="proj-desc">Implemented and compared classification algorithms (Logistic Regression, Random Forest, XGBoost) for survival and obesity-type prediction. Achieved strong F1 scores via feature engineering, hyperparameter tuning, and cross-validation.</div>
-              <div className="proj-stack">
-                <span className="proj-tech">Python</span>
-                <span className="proj-tech">Scikit-Learn</span>
-                <span className="proj-tech">XGBoost</span>
-                <span className="proj-tech">Pandas</span>
-                <span className="proj-tech">NumPy</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* EDUCATION */}
-        <section id="education">
-          <div className="section-header reveal">
-            <div className="section-tag">05 / education</div>
-            <h2 className="section-title">Academic <span>Background</span></h2>
-          </div>
-          <div className="edu-grid reveal">
-            <div className="edu-card featured">
-              <div>
-                <div className="edu-badge degree">BSc Degree</div>
-                <div className="edu-institution">BRAC University</div>
-                <div className="edu-degree">Computer Science & Engineering</div>
-                <div className="edu-date">2022 — Present · Dhaka, Bangladesh</div>
-                <div className="edu-courses">
-                  <span className="edu-course">Machine Learning</span>
-                  <span className="edu-course">Data Structures</span>
-                  <span className="edu-course">Algorithms</span>
-                  <span className="edu-course">Database Systems</span>
-                  <span className="edu-course">Computer Networks</span>
-                  <span className="edu-course">Software Engineering</span>
-                </div>
-              </div>
-              <div>
-                <div className="edu-gpa">3.50</div>
-                <div className="edu-gpa-label">CGPA / 4.00</div>
-                <div style={{ marginTop: '16px', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem', color: 'var(--text3)' }}>
-                  <div style={{ marginBottom: '4px' }}>Credits Completed</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--accent2)' }}>111</div>
-                </div>
-              </div>
-            </div>
-            <div className="edu-card">
-              <div className="edu-badge cert">Certificate</div>
-              <div className="edu-institution">WorldQuant University</div>
-              <div className="edu-degree">Applied Data Science Lab</div>
-              <div className="edu-date">2024 — 2025 · Online</div>
-              <div className="edu-courses" style={{ marginTop: '14px' }}>
-                <span className="edu-course">Data Science</span>
-                <span className="edu-course">ML</span>
-                <span className="edu-course">Statistics</span>
-                <span className="edu-course">Python</span>
-                <span className="edu-course">SQL</span>
-                <span className="edu-course">MongoDB</span>
-                <span className="edu-course">FastAPI</span>
-              </div>
-            </div>
-            <div className="edu-card">
-              <div className="edu-badge hsc">HSC</div>
-              <div className="edu-institution">Govt. Hazi Muhammad Mohsin College</div>
-              <div className="edu-degree">Higher Secondary Certificate</div>
-              <div className="edu-date">2019 — 2021 · Chittagong, BD</div>
-              <div style={{ marginTop: '16px' }}>
-                <div className="edu-gpa" style={{ fontSize: '2rem' }}>5.00</div>
-                <div className="edu-gpa-label">GPA / 5.00</div>
-              </div>
-            </div>
-            <div className="edu-card" style={{ gridColumn: 'span 1' }}>
-              <div className="edu-badge hsc">SSC</div>
-              <div className="edu-institution">Chittagong Collegiate School</div>
-              <div className="edu-degree">Secondary School Certificate</div>
-              <div className="edu-date">2017 — 2019 · Chittagong, BD</div>
-              <div style={{ marginTop: '16px' }}>
-                <div className="edu-gpa" style={{ fontSize: '2rem' }}>5.00</div>
-                <div className="edu-gpa-label">GPA / 5.00</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* CONTACT */}
-        <section id="contact">
-          <div className="section-header reveal">
-            <div className="section-tag">06 / contact</div>
-            <h2 className="section-title">Get In <span>Touch</span></h2>
-          </div>
-          <div className="contact-grid reveal">
-            <div className="contact-info">
-              <h3>Let's build something intelligent.</h3>
-              <p>I'm open to ML engineering roles, data science internships, research collaborations, and interesting full-stack projects. Whether you have a problem that needs ML or just want to connect — reach out.</p>
-              <div className="contact-items">
-                <a href="mailto:tarifrahman93@gmail.com" className="contact-item">
-                  <div className="contact-item-icon">📧</div>
-                  <div className="contact-item-text">
-                    <div className="contact-item-label">Email</div>
-                    tarifrahman93@gmail.com
+              <div style={styles.statsGrid}>
+                {[
+                  { val: '6+', label: 'ML Projects' },
+                  { val: '3.50', label: 'CGPA' },
+                  { val: '111', label: 'Credits' },
+                  { val: '5.0', label: 'GPA' }
+                ].map((stat, i) => (
+                  <div key={i} style={styles.statCard}>
+                    <div style={{ fontSize: '28px', fontWeight: '800', color: '#111827' }}>{stat.val}</div>
+                    <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>{stat.label}</div>
                   </div>
-                </a>
-                <a href="https://linkedin.com/in/tarif-rahman-265951261" target="_blank" rel="noopener noreferrer" className="contact-item">
-                  <div className="contact-item-icon">💼</div>
-                  <div className="contact-item-text">
-                    <div className="contact-item-label">LinkedIn</div>
-                    tarif-rahman-265951261
-                  </div>
-                </a>
-                <a href="https://github.com/Tarif205" target="_blank" rel="noopener noreferrer" className="contact-item">
-                  <div className="contact-item-icon">🐙</div>
-                  <div className="contact-item-text">
-                    <div className="contact-item-label">GitHub</div>
-                    github.com/Tarif205
-                  </div>
-                </a>
-                <a href="tel:+8801707804714" className="contact-item">
-                  <div className="contact-item-icon">📱</div>
-                  <div className="contact-item-text">
-                    <div className="contact-item-label">Phone</div>
-                    +880 1707-804714
-                  </div>
-                </a>
+                ))}
               </div>
             </div>
-            <div className="contact-form">
-              <div className="form-group">
-                <label className="form-label">Name</label>
-                <input type="text" className="form-input" placeholder="Your name" id="contact-name" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Email</label>
-                <input type="email" className="form-input" placeholder="your@email.com" id="contact-email" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Subject</label>
-                <input type="text" className="form-input" placeholder="ML Role / Collaboration / ..." id="contact-subject" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Message</label>
-                <textarea className="form-textarea" placeholder="Tell me about the opportunity or project..." id="contact-message"></textarea>
-              </div>
-              <button className="form-submit" id="form-submit">Send Message →</button>
-              <div id="form-msg" style={{ marginTop: '12px', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.72rem', color: 'var(--accent2)', display: 'none' }}>
-                ✓ Message sent! I'll reply to your email.
+
+            <div style={styles.imgContainer}>
+              <div style={styles.imgWrapper}>
+                <div style={styles.profileImg}>
+                  <img src="/tarif.jpg" alt="Kazi Tarif Rahman" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
               </div>
             </div>
           </div>
-        </section>
-      </main>
-
-      <footer>
-        <div className="footer-copy">
-          © 2025 <span>Tarif Rahman</span>. Built with precision.
         </div>
-        <div className="footer-links">
-          <a href="https://github.com/Tarif205" target="_blank" rel="noopener noreferrer" className="footer-link">GitHub</a>
-          <a href="https://linkedin.com/in/tarif-rahman-265951261" target="_blank" rel="noopener noreferrer" className="footer-link">LinkedIn</a>
-          <a href="mailto:tarifrahman93@gmail.com" className="footer-link">Email</a>
+      </section>
+
+      {/* About */}
+      <section id="about" style={styles.sectionGray}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+          <div style={styles.sectionHeader}>
+            <span style={styles.sectionTag}>01. About Me</span>
+            <h2 style={styles.sectionTitle}>Who I Am</h2>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px' }}>
+            <div>
+              <p style={{ fontSize: '18px', color: '#374151', lineHeight: '1.7', marginBottom: '24px' }}>
+                I'm a <strong style={{ color: '#111827' }}>Computer Science student at BRAC University</strong> specializing in AI/ML and Data Science. I build things that learn — from transformer-based Bangla NLP models to real-time computer vision systems.
+              </p>
+              <p style={{ fontSize: '18px', color: '#374151', lineHeight: '1.7', marginBottom: '32px' }}>
+                My work spans the full ML lifecycle: data ingestion, feature engineering, model training, evaluation, and production deployment. I care deeply about <strong style={{ color: '#111827' }}>low-resource NLP</strong>, especially for Bangla.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                {[
+                  { icon: '🎓', label: 'University', value: 'BRAC University' },
+                  { icon: '📍', label: 'Location', value: 'Dhaka, BD' },
+                  { icon: '🤖', label: 'Focus', value: 'NLP · CV' },
+                  { icon: '🏆', label: 'Cert', value: 'WorldQuant' }
+                ].map((h, i) => (
+                  <div key={i} style={{ ...styles.card, ':hover': { boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' } }} onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)'} onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 1px 3px 0 rgba(0,0,0,0.1)'}>
+                    <div style={{ fontSize: '24px', marginBottom: '8px' }}>{h.icon}</div>
+                    <div style={{ fontSize: '13px', color: '#6b7280', fontWeight: '700' }}>{h.label}</div>
+                    <div style={{ color: '#111827', fontWeight: '800', marginTop: '4px' }}>{h.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {[
+                { title: 'AI/ML Collaborator', company: 'Aireel Digital', time: '2025 — Present' },
+                { title: 'SDE Intern', company: 'uSavior', time: '2024 — 2026' }
+              ].map((exp, i) => (
+                <div key={i} style={{ ...styles.card, ':hover': { boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' } }} onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)'} onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 1px 3px 0 rgba(0,0,0,0.1)'}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                    <div style={{ width: '40px', height: '40px', backgroundColor: '#dbeafe', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', fontWeight: '800' }}>{i + 1}</div>
+                    <div>
+                      <div style={{ fontWeight: '800', color: '#111827' }}>{exp.title}</div>
+                      <div style={{ fontSize: '14px', color: '#6b7280' }}>{exp.company}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#9ca3af' }}>{exp.time}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Skills */}
+      <section id="skills" style={styles.section}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+          <div style={styles.sectionHeader}>
+            <span style={styles.sectionTag}>02. Tech Stack</span>
+            <h2 style={styles.sectionTitle}>Skills & Technologies</h2>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '32px' }}>
+            {[
+              { name: 'ML / AI', tags: ['NLP', 'Transformers', 'PyTorch', 'HuggingFace'] },
+              { name: 'Data Science', tags: ['Python', 'Pandas', 'NumPy', 'SQL'] },
+              { name: 'Web Dev', tags: ['React', 'Next.js', 'Node.js', 'MongoDB'] },
+              { name: 'Tools', tags: ['Git', 'Linux', 'FastAPI', 'AWS'] }
+            ].map((cat, i) => (
+              <div key={i} style={{ ...styles.card, background: 'linear-gradient(135deg, #f9fafb, #ffffff)' }} onMouseOver={(e) => { e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0,0,0,0.1)'; e.currentTarget.style.borderColor = '#dbeafe'; }} onMouseOut={(e) => { e.currentTarget.style.boxShadow = '0 1px 3px 0 rgba(0,0,0,0.1)'; e.currentTarget.style.borderColor = '#f3f4f6'; }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '16px' }}>{cat.name}</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {cat.tags.map((tag, j) => (
+                    <span key={j} style={{ padding: '6px 12px', backgroundColor: '#fff', color: '#374151', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)' }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Projects */}
+      <section id="projects" style={styles.sectionGray}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+          <div style={styles.sectionHeader}>
+            <span style={styles.sectionTag}>03. Projects</span>
+            <h2 style={styles.sectionTitle}>Featured Work</h2>
+          </div>
+          <div style={styles.projectGrid}>
+            {[
+              {
+                emoji: '🌿', title: 'GardeniAR', desc: 'Full-stack AR weed detection using Gemini multimodal AI', tags: ['MERN', 'Gemini'], color: 'linear-gradient(135deg, #22c55e, #10b981)', link: 'https://github.com/Tarif205/gardeniAR'
+              },
+              {
+                emoji: '🎵', title: 'Multi-Genre Music Generation', desc: 'Unsupervised LSTM/VAE for music sequence generation', tags: ['Python', 'LSTM', 'VAE'], color: 'linear-gradient(135deg, #ec4899, #f43f5e)', link: 'https://github.com/Tarif205/Unsupervised-Neural-Network-for-Multi-Genre-Music-Generation'
+              },
+              {
+                emoji: '🔤', title: 'Bangla NLP Models', desc: 'Fine-tuned sahajBERT & BanglaBERT for classification', tags: ['PyTorch', 'HuggingFace'], color: 'linear-gradient(135deg, #3b82f6, #6366f1)', link: 'https://github.com/Tarif205'
+              },
+              {
+                emoji: '🌫️', title: 'Air Quality Prediction', desc: 'End-to-end ML pipeline with FastAPI & MongoDB', tags: ['FastAPI', 'MongoDB'], color: 'linear-gradient(135deg, #06b6d4, #0ea5e9)', link: 'https://github.com/Tarif205/air-quality-prediction-platform'
+              },
+              {
+                emoji: '🤟', title: 'Sign Language Detection', desc: 'Lightweight CNN with transfer learning', tags: ['Python', 'CNN'], color: 'linear-gradient(135deg, #a855f7, #8b5cf6)', link: 'https://github.com/Tarif205/Lightweight-Sign-Language-Detection-Model'
+              },
+              {
+                emoji: '📈', title: 'Titanic & Obesity Predictions', desc: 'Classification models with feature engineering', tags: ['Scikit-learn', 'XGBoost'], color: 'linear-gradient(135deg, #f97316, #f59e0b)', link: 'https://github.com/Tarif205/Machine-Learning-Titanic-disaster-Prediction'
+              }
+            ].map((proj, i) => (
+              <a key={i} href={proj.link} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                <div style={{ ...styles.card, padding: '28px', ':hover': { transform: 'translateY(-8px)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' } }} onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-8px)'; e.currentTarget.style.boxShadow = '0 25px 50px -12px rgba(0,0,0,0.25)'; }} onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px 0 rgba(0,0,0,0.1)'; }}>
+                  <div style={{ ...styles.projectEmoji(proj.color), marginBottom: '20px' }}>{proj.emoji}</div>
+                  <h3 style={{ fontSize: '20px', fontWeight: '800', marginBottom: '12px', color: '#111827', transition: 'color 0.2s' }} onMouseOver={(e) => (e.currentTarget.style.color = '#2563eb')} onMouseOut={(e) => (e.currentTarget.style.color = '#111827')}>{proj.title}</h3>
+                  <p style={{ fontSize: '14px', color: '#4b5563', lineHeight: '1.6', marginBottom: '20px' }}>{proj.desc}</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {proj.tags.map((tag, j) => (
+                      <span key={j} style={{ padding: '4px 10px', backgroundColor: '#f3f4f6', color: '#374151', borderRadius: '6px', fontSize: '12px', fontWeight: '800' }}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Contact */}
+      <section id="contact" style={styles.section}>
+        <div style={styles.sectionHeader}>
+          <span style={styles.sectionTag}>04. Contact</span>
+          <h2 style={styles.sectionTitle}>Let's Build Together</h2>
+        </div>
+        <div style={styles.contactGrid}>
+          <div>
+            <p style={{ fontSize: '18px', color: '#4b5563', marginBottom: '32px', lineHeight: '1.7' }}>
+              Open to ML engineering roles, data science internships, research collaborations, and interesting full-stack projects!
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {[
+                { icon: '📧', label: 'Email', value: 'tarifrahman93@gmail.com', href: 'mailto:tarifrahman93@gmail.com' },
+                { icon: '💼', label: 'LinkedIn', value: 'linkedin.com/in/tarif-rahman-265951261', href: 'https://linkedin.com/in/tarif-rahman-265951261' },
+                { icon: '🐙', label: 'GitHub', value: 'github.com/Tarif205', href: 'https://github.com/Tarif205' },
+                { icon: '📱', label: 'Phone', value: '+880 1707-804714', href: 'tel:+8801707804714' }
+              ].map((c, i) => (
+                <a key={i} href={c.href} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', backgroundColor: '#f9fafb', borderRadius: '16px', textDecoration: 'none', transition: 'background-color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#eff6ff'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}>
+                  <div style={{ width: '48px', height: '48px', backgroundColor: '#fff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)' }}>{c.icon}</div>
+                  <div>
+                    <div style={{ fontSize: '13px', color: '#6b7280', fontWeight: '700' }}>{c.label}</div>
+                    <div style={{ color: '#111827', fontWeight: '800' }}>{c.value}</div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <form onSubmit={handleSubmit} style={styles.form}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {[
+                  { name: 'name', label: 'Name', type: 'text', placeholder: 'Your name' },
+                  { name: 'email', label: 'Email', type: 'email', placeholder: 'your@email.com' },
+                  { name: 'subject', label: 'Subject', type: 'text', placeholder: 'ML Role / Project' },
+                  { name: 'message', label: 'Message', type: 'textarea', placeholder: 'Tell me about it...' }
+                ].map((field, i) => (
+                  <div key={i}>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: '#374151', marginBottom: '8px' }}>{field.label}</label>
+                    {field.type === 'textarea' ? (
+                      <textarea name={field.name} rows={4} style={{ ...styles.input, resize: 'vertical' }} placeholder={field.placeholder} onFocus={(e) => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.backgroundColor = '#fff'; }} onBlur={(e) => { e.currentTarget.style.borderColor = '#f3f4f6'; e.currentTarget.style.backgroundColor = '#f9fafb'; }} />
+                    ) : (
+                      <input name={field.name} type={field.type} style={styles.input} placeholder={field.placeholder} onFocus={(e) => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.backgroundColor = '#fff'; }} onBlur={(e) => { e.currentTarget.style.borderColor = '#f3f4f6'; e.currentTarget.style.backgroundColor = '#f9fafb'; }} />
+                    )}
+                  </div>
+                ))}
+
+                <button 
+                  type="submit" 
+                  style={{
+                    padding: '16px', background: 'linear-gradient(135deg, #2563eb, #9333ea)', color: '#fff', fontSize: '16px',
+                    fontWeight: '800', border: 'none', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s',
+                    boxShadow: '0 10px 15px -3px rgba(37,99,235,0.25)'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+                >
+                  Send Message
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer style={styles.footer}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '14px', color: '#6b7280' }}>© 2025 Kazi Tarif Rahman. All rights reserved.</div>
+          <div style={{ display: 'flex', gap: '24px' }}>
+            {['GitHub', 'LinkedIn', 'Email'].map((item, i) => (
+              <a 
+                key={i} 
+                href={i === 0 ? 'https://github.com/Tarif205' : i === 1 ? 'https://linkedin.com/in/tarif-rahman-265951261' : 'mailto:tarifrahman93@gmail.com'} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                style={{ color: '#6b7280', textDecoration: 'none', fontSize: '14px', fontWeight: '700', transition: 'color 0.2s' }}
+                onMouseOver={(e) => e.currentTarget.style.color = '#2563eb'}
+                onMouseOut={(e) => e.currentTarget.style.color = '#6b7280'}
+              >
+                {item}
+              </a>
+            ))}
+          </div>
         </div>
       </footer>
-    </>
+    </div>
   );
 }
